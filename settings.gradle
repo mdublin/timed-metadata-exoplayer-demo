@@ -1,0 +1,2 @@
+include ':app'
+include ':exoplayer-codelab-04'
