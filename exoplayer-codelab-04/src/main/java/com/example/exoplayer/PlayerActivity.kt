@@ -28,6 +28,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.Util
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import com.example.exoplayer.databinding.ActivityPlayerBinding
 import org.json.JSONObject
@@ -60,6 +62,9 @@ class PlayerActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(viewBinding.root)
     }
+
+
+
 
 
     private fun getTimedMetadataStartTimes() : List<Float> {
@@ -135,6 +140,76 @@ class PlayerActivity : AppCompatActivity() {
 
 
 
+
+    // createMessage callback that gets passed current time
+    // will parse through
+    private fun updateScoreBoardViewFromSeek(currentStartTimeForUpdatingUI: Float) {
+
+
+        Log.d("this is what passed", currentStartTimeForUpdatingUI.toString())
+
+
+        // all this needs to be available at the class level, not repeated inside these funcs
+        val fileInString: String =
+            applicationContext.assets.open("test.json").bufferedReader().use { it.readText() }
+        val jsonObject = JSONTokener(fileInString).nextValue() as JSONObject
+        val jsonArray = jsonObject.getJSONArray("results")
+
+        for (i in 0 until jsonArray.length()) {
+            // iterating through json object
+            val start = jsonArray.getJSONObject(i).getString("start")
+            val end = jsonArray.getJSONObject(i).getString("end")
+
+
+            Log.d("start", start.toString())
+            Log.d("end", end.toString())
+
+
+            if ((currentStartTimeForUpdatingUI >= start.toFloat()) && (currentStartTimeForUpdatingUI <= end.toFloat())) {
+
+                val homeScore = jsonArray.getJSONObject(i).getJSONObject("metadata").getJSONObject("scores").getString("home")
+                val visitorScore = jsonArray.getJSONObject(i).getJSONObject("metadata").getJSONObject("scores").getString("visitor")
+                val bases = jsonArray.getJSONObject(i).getJSONObject("metadata").getJSONArray("bases")
+
+
+                // score
+                val updatedHomeScore = findViewById<TextView>(R.id.text_view_home_score)
+                updatedHomeScore.text = homeScore
+
+                val updatedVisitorScore = findViewById<TextView>(R.id.text_view_visitor_score)
+                updatedVisitorScore.text = visitorScore
+
+                // bases
+                val updatedFirstBase = findViewById<ImageView>(R.id.first_base)
+
+                when((bases[0] === 1)) {
+                    true ->  updatedFirstBase.setImageResource(R.drawable.onbase)
+                    false -> updatedFirstBase.setImageResource(R.drawable.base)
+                }
+
+                val updatedSecondBase = findViewById<ImageView>(R.id.second_base)
+
+                when((bases[1] === 1)) {
+                    true -> updatedSecondBase.setImageResource(R.drawable.onbase)
+                    false -> updatedSecondBase.setImageResource(R.drawable.base)
+                }
+
+                val updatedThirdBase = findViewById<ImageView>(R.id.third_base)
+
+                when((bases[2] === 1)) {
+                    true -> updatedThirdBase.setImageResource(R.drawable.onbase)
+                    false -> updatedThirdBase.setImageResource(R.drawable.base)
+                }
+
+            }
+        }
+    }
+
+
+
+
+
+
     public override fun onStart() {
         super.onStart()
         if (Util.SDK_INT > 23) {
@@ -195,6 +270,51 @@ class PlayerActivity : AppCompatActivity() {
                 }
 
             }
+
+
+
+            player!!.addAnalyticsListener(object : AnalyticsListener {
+                override fun onPlaybackStateChanged(
+                    eventTime: EventTime, state: @Player.State Int
+                ) {
+                }
+
+                override fun onDroppedVideoFrames(
+                    eventTime: EventTime, droppedFrames: Int, elapsedMs: Long
+                ) {
+                }
+
+                /*
+                override fun onSeekProcessed(eventTime: EventTime) {
+                    super.onSeekProcessed(eventTime)
+                    Log.d("onSeekProcessed", eventTime.realtimeMs.toString())
+                    val seekedToSecond = (eventTime.realtimeMs / 1000).toFloat()
+                    eventTime.currentTimeline
+                    updateScoreBoardViewFromSeek(seekedToSecond)
+                }
+
+                 */
+
+                //https://exoplayer.dev/doc/reference/com/google/android/exoplayer2/Player.Listener.html#onPositionDiscontinuity(com.google.android.exoplayer2.Player.PositionInfo,com.google.android.exoplayer2.Player.PositionInfo,@com.google.android.exoplayer2.Player.DiscontinuityReasonint)
+                override fun onPositionDiscontinuity(
+                    eventTime: EventTime,
+                    oldPosition: Player.PositionInfo,
+                    newPosition: Player.PositionInfo,
+                    reason: Int
+                ) {
+                    super.onPositionDiscontinuity(eventTime, oldPosition, newPosition, reason)
+                    Log.d("newPosition", newPosition.positionMs.toString())
+                    val seekedToSecond = (newPosition.positionMs / 1000).toFloat()
+                    updateScoreBoardViewFromSeek(seekedToSecond)
+                }
+            })
+
+
+
+
+
+
+
     }
 
     private fun releasePlayer() {
@@ -207,6 +327,10 @@ class PlayerActivity : AppCompatActivity() {
         }
         player = null
     }
+
+
+
+
 
     @SuppressLint("InlinedApi")
     private fun hideSystemUi() {
